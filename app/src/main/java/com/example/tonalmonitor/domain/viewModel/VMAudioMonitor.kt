@@ -1,36 +1,33 @@
 package com.example.tonalmonitor.domain.viewModel
 
+import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.launch
+import com.example.tonalmonitor.domain.model.AudioAnalyzer
+import com.example.tonalmonitor.domain.model.Notes
 
 class VMAudioMonitor: ViewModel() {
     val isStarted: MutableState<Boolean> = mutableStateOf(false)
 
-    val histogram: MutableState<List<String>> = mutableStateOf(listOf())
+    val note: MutableState<Pair<Notes, Int>?> = mutableStateOf(null)
 
     val permissionDenied: MutableState<Boolean> = mutableStateOf(false)
 
+    private val audioAnalizer: AudioAnalyzer = AudioAnalyzer()
+
+    @RequiresPermission("android.permission.RECORD_AUDIO")
     fun start() {
+        audioAnalizer.startMonitoring(viewModelScope) {
+            note.value = it
+        }
         isStarted.value = true
     }
 
     fun stop() {
+        audioAnalizer.stopMonitoring()
         isStarted.value = false
-    }
-
-    fun getHistogram(hist: Map<Int, Int>) {
-        viewModelScope.launch {
-            histogram.value = mutableListOf<String>().apply {
-                hist.forEach{
-                    add(
-                        "Frequency: ${it.key}; Amplitude: ${it.value}"
-                    )
-                }
-            }
-        }
     }
 
     fun onPermissionDenied() {

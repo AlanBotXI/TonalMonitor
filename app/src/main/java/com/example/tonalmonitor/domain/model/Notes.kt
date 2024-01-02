@@ -1,5 +1,7 @@
 package com.example.tonalmonitor.domain.model
 
+import kotlin.math.absoluteValue
+
 enum class Notes(val noteName: String, val startFrequency: Float) {
     C(noteName = "Do", startFrequency = 16.35F),
     CS(noteName = "Do sostenido", startFrequency = 17.32F),
@@ -15,16 +17,23 @@ enum class Notes(val noteName: String, val startFrequency: Float) {
     B(noteName = "Si", startFrequency = 30.87F);
 
     companion object {
-        fun findFromFrequency(freq: Double): Pair<Notes, Int> {
-            val odds: Array<Double> = Notes.values().map { freq / it.startFrequency }.toTypedArray()
-            val octaves = odds.map { Pair(it.toInt() /*Octave*/, it - it.toInt()) /*Remain*/ }
-            val noteInx: Int = octaves.indexOf(
-                octaves.find { value ->
-                    value.second == octaves.minOfOrNull { it.second }
+        fun findFromFrequency(freq: Float): Pair<Notes, Int>? {
+            return try {
+                if (freq < 15) throw Exception()
+                val odds: List<Pair<Int, Float>> = Notes.values().map { note ->
+                    val ratio = freq / note.startFrequency
+                    Pair(ratio.toInt(), ratio - ratio.toInt())
                 }
-            )
+                val closestNote = odds.minByOrNull { it.second.absoluteValue }
 
-            return Pair(Notes.values()[noteInx], octaves[noteInx].first)
+                if (closestNote != null) {
+                    Pair(Notes.values()[closestNote.first], closestNote.first)
+                } else {
+                    null
+                }
+            } catch (ex: Exception) {
+                null
+            }
         }
 
     }

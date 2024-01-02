@@ -11,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModelProvider
-import com.example.tonalmonitor.domain.model.AudioAnalyzer
 import com.example.tonalmonitor.domain.viewModel.VMAudioMonitor
 import com.example.tonalmonitor.ui.TonalMonitorScreen
 import com.example.tonalmonitor.ui.theme.TonalMonitorTheme
@@ -24,7 +23,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         viewModel = ViewModelProvider(this)[VMAudioMonitor::class.java]
-        val analyzer = AudioAnalyzer()
 
         setContent {
             TonalMonitorTheme {
@@ -33,7 +31,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    TonalMonitorScreen(viewModel = viewModel, analyzer)
+                    TonalMonitorScreen(viewModel = viewModel)
                 }
 
             }

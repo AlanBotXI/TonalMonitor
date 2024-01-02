@@ -72,5 +72,7 @@ dependencies {
 
     //Extended icons
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
+    //Tarsos DSP for audio processing
+    implementation(files("libs\\TarsosDSP-Android-2.4.jar"))
 
 }

@@ -1,107 +1,48 @@
 package com.example.tonalmonitor.domain.model
 
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
-import android.os.Process
 import androidx.annotation.RequiresPermission
+import be.tarsos.dsp.AudioDispatcher
+import be.tarsos.dsp.AudioProcessor
+import be.tarsos.dsp.io.android.AudioDispatcherFactory
+import be.tarsos.dsp.pitch.PitchDetectionHandler
+import be.tarsos.dsp.pitch.PitchProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlin.math.absoluteValue
-
 
 class AudioAnalyzer {
-    private var audioRecord: AudioRecord? = null
-    private val bufferSize: Int
-    private val sampleRate: Int = 4000
-    private val channelConfig: Int = AudioFormat.CHANNEL_IN_MONO
-    private val audioFormat: Int = AudioFormat.ENCODING_PCM_16BIT
 
-    init {
-        bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-    }
+    private val p0: Int = 22050
+    private val p1: Int = 1024
+    private lateinit var dispatcher: AudioDispatcher
 
     @RequiresPermission("android.permission.RECORD_AUDIO")
-    fun startMonitoring(scope: CoroutineScope, onAudioData: (Pair<Notes, Int>) -> Unit) {
-        audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.MIC,
-            sampleRate,
-            channelConfig,
-            audioFormat,
-            bufferSize
-        )
-
-        audioRecord?.startRecording()
-
-        scope.launch(Dispatchers.IO) {
-            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
-
-            val audioData = ShortArray(bufferSize / 2)
-            var counter: Int = 0
-
-            while (audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                val bytesRead = audioRecord?.read(audioData, 0, audioData.size)
-
-                if (bytesRead != null && bytesRead > 0 && counter <= 10) {
-                    onAudioData(
-                        findNote(audioData)
-                    )
-//                    counter = 0
-                }
-                counter++
-            }
-
-            audioRecord?.stop()
-            audioRecord?.release()
-//            audioRecord = null
+    fun startMonitoring(scope: CoroutineScope, onNoteDetected: (Pair<Notes, Int>?) -> Unit) {
+        var i = 0
+        val pdh = PitchDetectionHandler { result, _ ->
+            i++
+            if (i != 10 ) return@PitchDetectionHandler
+            val pitch: Float = result.pitch
+            onNoteDetected(
+                Notes.findFromFrequency(pitch)
+            )
+            i = 0
         }
+
+        val pitchProcessor: AudioProcessor = PitchProcessor(
+            PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, 22050f, 1024, pdh
+        )
+        dispatcher = AudioDispatcherFactory.fromDefaultMicrophone(p0, p1, 0)
+
+        dispatcher.addAudioProcessor(pitchProcessor)
+        scope.launch(Dispatchers.Default) {
+            dispatcher.run()
+        }
+
     }
 
     fun stopMonitoring() {
-        audioRecord?.stop()
-        audioRecord?.release()
-        audioRecord = null
-    }
-
-    private fun findNote(input: ShortArray): Pair<Notes, Int> {
-        return Notes.findFromFrequency(
-            findDominantFrequency(
-                FFT.fft(
-                    input.map { Complex(it.toDouble(), 0.toDouble()) }.toTypedArray()
-                )
-            )
-        )
-    }
-
-    private fun findDominantFrequency(transform: Array<Complex>): Double {
-
-        // Calculate magnitude spectrum
-        val magnitudeSpectrum: DoubleArray = transform.map { it.re.absoluteValue }.toDoubleArray()
-
-        // Find the index of the maximum magnitude
-        val indexOfMaxMagnitude =
-            magnitudeSpectrum.indexOfFirst { it == magnitudeSpectrum.maxOrNull() }
-
-        // Calculate the corresponding frequency in Hertz
-
-        return indexOfMaxMagnitude * sampleRate.toDouble() / transform.size
+        dispatcher.stop()
     }
 
 }
-
-/*
-    private fun generateHistogram(audioData: ShortArray): Map<Int, Int> {
-        val histogram = mutableMapOf<Int, Int>()
-
-        for (amplitude in audioData) {
-            // Convert amplitude to non-negative value
-            val absAmplitude = abs(amplitude.toInt())
-
-            // Increment the count for the given amplitude value
-            histogram[absAmplitude] = histogram.getOrDefault(absAmplitude, 0) + 1
-        }
-
-        return histogram
-    }
-*/
